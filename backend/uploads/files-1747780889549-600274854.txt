@@ -1,0 +1,5 @@
+Soru:
+OSI modelinin Taşıma Katmanı'nın temel görevleri nelerdir ve örnek protokoller hangileridir?
+
+Cevap:
+Taşıma Katmanı, uçtan uca veri aktarımı, akış kontrolü ve hata düzeltme sağlar. Örnek protokoller TCP ve UDP'dir.
