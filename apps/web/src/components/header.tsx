@@ -8,7 +8,7 @@ export function Header() {
         <div className="bg-black text-white w-8 h-8 rounded-md flex items-center justify-center">
           <span className="font-medium">C</span>
         </div>
-        <span className="font-medium text-gray-800">My Workspace</span>
+        <span className="font-medium text-gray-800">Seval Sorak's...</span>
       </div>
 
       <div className="flex items-center space-x-6">
@@ -26,7 +26,7 @@ export function Header() {
 
         <Avatar className="h-8 w-8">
           <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
-          <AvatarFallback>U</AvatarFallback>
+          <AvatarFallback>S</AvatarFallback>
         </Avatar>
       </div>
     </header>

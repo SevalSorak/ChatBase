@@ -1,56 +1,73 @@
-import { Controller, Post, UseInterceptors, UploadedFiles, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Query, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { AgentService } from './agent.service';
+import { CreateAgentDto } from './dto/create-agent.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import * as fs from 'fs';
-import { AgentService } from './agent.service';
 
-@Controller('agent')
+@Controller('agents')
+@UseGuards(JwtAuthGuard)
 export class AgentController {
   constructor(private readonly agentService: AgentService) {}
 
-  @Post('upload')
-  @UseInterceptors(FilesInterceptor('files', 10, {
-    storage: diskStorage({
-      destination: (req, file, cb) => {
-        const uploadPath = './uploads';
-        if (!fs.existsSync(uploadPath)) {
-          fs.mkdirSync(uploadPath, { recursive: true });
+  @Post()
+  create(@Body() createAgentDto: CreateAgentDto, @Req() req) {
+    return this.agentService.create(createAgentDto, req.user.id);
+  }
+
+  @Get()
+  findAll(@Req() req, @Query('page') page = 1, @Query('limit') limit = 10) {
+    return this.agentService.findAll(req.user.id, { page, limit });
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @Req() req) {
+    return this.agentService.findOne(id, req.user.id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Req() req) {
+    return this.agentService.remove(id, req.user.id);
+  }
+
+  @Post(':id/sources/files')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(pdf|doc|docx|txt)$/)) {
+          return cb(new Error('Only PDF, DOC, DOCX, and TXT files are allowed!'), false);
         }
-        cb(null, uploadPath);
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const ext = extname(file.originalname);
-        cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+        cb(null, true);
       },
     }),
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = ['.pdf', '.doc', '.docx', '.txt'];
-      const ext = extname(file.originalname).toLowerCase();
-      if (allowedTypes.includes(ext)) {
-        cb(null, true);
-      } else {
-        cb(new HttpException(`Unsupported file type: ${ext}`, HttpStatus.BAD_REQUEST), false);
-      }
-    },
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
-  }))
-  async uploadFiles(@UploadedFiles() files: Express.Multer.File[]) {
-    // 400KB toplam limit kontrolü
-    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-    if (totalSize > 400 * 1024) {
-      throw new BadRequestException('Total file size exceeds 400KB limit');
-    }
+  )
+  uploadFiles(@Param('id') id: string, @UploadedFiles() files, @Req() req) {
+    return this.agentService.addFileSources(id, files, req.user.id);
+  }
 
-    return {
-      message: 'Files uploaded successfully!',
-      files: files.map(f => ({
-        originalName: f.originalname,
-        filename: f.filename,
-        path: f.path,
-        size: f.size,
-      })),
-    };
+  @Post(':id/sources/text')
+  addTextSource(@Param('id') id: string, @Body() textData: { title: string; content: string }, @Req() req) {
+    return this.agentService.addTextSource(id, textData, req.user.id);
+  }
+
+  @Post(':id/sources/links')
+  addLinkSource(@Param('id') id: string, @Body() linkData: { url: string; includePaths?: string; excludePaths?: string }, @Req() req) {
+    return this.agentService.addLinkSource(id, linkData, req.user.id);
+  }
+
+  @Post(':id/sources/qa')
+  addQASource(@Param('id') id: string, @Body() qaData: { title: string; questions: { question: string; answer: string }[] }, @Req() req) {
+    return this.agentService.addQASource(id, qaData, req.user.id);
   }
 }
