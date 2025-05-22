@@ -6,7 +6,9 @@ interface SourcesSidebarProps {
   sources: Source[]
   totalSize: number
   maxSize: number
-  onCreateAgent: () => void
+  onCreateAgent?: () => void
+  readOnly?: boolean
+  isCreating?: boolean
 }
 
 export function SourcesSidebar({ sources, totalSize, maxSize, onCreateAgent }: SourcesSidebarProps) {
