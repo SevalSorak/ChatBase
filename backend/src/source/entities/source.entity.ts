@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Agent } from '../../agent/entities/agent.entity';
+import { Agent } from '../../agents/entities/agent.entity';
 
 export enum SourceType {
   FILE = 'file',

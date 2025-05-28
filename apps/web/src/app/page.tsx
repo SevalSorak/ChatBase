@@ -24,6 +24,7 @@ export type Source = {
   url?: string
   isNew?: boolean
   metadata?: Record<string, any>
+  fileSize?: number
 }
 
 export default function Home() {
@@ -35,12 +36,19 @@ export default function Home() {
   const totalSize = sources.reduce((total, source) => total + source.size, 0)
   const maxSize = 400 * 1024 // 400 KB
 
-  const handleAddSource = (source: Source) => {
-    setSources((prev) => [...prev, source])
-    toast({
-      title: "Source added",
-      description: `Added ${source.name} (${formatFileSize(source.size)})`,
-    })
+  const handleAddSource = (newSources: Source[]) => {
+    console.log('handleAddSource called with:', newSources);
+    const formattedSources = newSources.map(source => ({
+      ...source,
+      size: source.fileSize || 0,
+    }));
+    setSources((prev) => [...prev, ...formattedSources]);
+    formattedSources.forEach(source => {
+      toast({
+        title: "Source added",
+        description: `Added ${source.name} (${formatFileSize(source.size)})`,
+      });
+    });
   }
 
   const handleRemoveSource = (id: string) => {
@@ -70,13 +78,20 @@ export default function Home() {
   }
 
   const getSourcesByType = (type: SourceType) => {
-    return sources.filter((source) => source.type === type)
+    const filtered = sources.filter((source) => source.type === type);
+    console.log(`Sources of type ${type}:`, filtered);
+    return filtered;
   }
 
   const renderContent = () => {
     switch (activeTab) {
       case "files":
-        return <FileUpload onAddSource={handleAddSource} sources={getSourcesByType("file")} onRemoveSource={handleRemoveSource} />
+        return <FileUpload 
+          agentId={sources[0]?.id || 'new'} 
+          onUploadComplete={handleAddSource} 
+          sources={getSourcesByType("file")} 
+          onRemoveSource={handleRemoveSource} 
+        />
       case "text":
         return <TextEditor onAddSource={handleAddSource} sources={getSourcesByType("text")} onRemoveSource={handleRemoveSource} />
       case "website":

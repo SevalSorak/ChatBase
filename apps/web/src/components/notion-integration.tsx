@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import type { Source } from "@/app/page"
 
 interface NotionIntegrationProps {
-  onAddSource: (source: Source) => void
+  onAddSource: (sources: Source[]) => void
 }
 
 export function NotionIntegration({ onAddSource }: NotionIntegrationProps) {
@@ -26,7 +26,7 @@ export function NotionIntegration({ onAddSource }: NotionIntegrationProps) {
       isNew: true,
     }
 
-    onAddSource(source)
+    onAddSource([source])
     setShowConnectDialog(false)
   }
 

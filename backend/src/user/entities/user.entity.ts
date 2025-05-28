@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { Agent } from '../../agent/entities/agent.entity';
+import { Agent } from '../../agents/entities/agent.entity';
 import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 
 @Entity()

@@ -10,7 +10,7 @@ import type { Source } from "@/app/page"
 import { formatFileSize } from "@/app/page"
 
 interface TextEditorProps {
-  onAddSource: (source: Source) => void
+  onAddSource: (sources: Source[]) => void
   sources: Source[]
   onRemoveSource: (id: string) => void
 }
@@ -32,7 +32,7 @@ export function TextEditor({ onAddSource, sources, onRemoveSource }: TextEditorP
       isNew: true,
     }
 
-    onAddSource(source)
+    onAddSource([source])
     setTitle("")
     setContent("")
   }

@@ -8,6 +8,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 // Add request interceptor
@@ -31,6 +32,11 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error) => {
+    if (!error.response) {
+      console.error('Network error:', error);
+      return Promise.reject(new Error('Network error - please check your connection'));
+    }
+
     const originalRequest = error.config;
     
     // If error is 401 (Unauthorized) and we haven't tried to refresh the token yet
@@ -46,7 +52,7 @@ axiosInstance.interceptors.response.use(
           return Promise.reject(error);
         }
         
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
+        const response = await axiosInstance.post('/auth/refresh', {
           refreshToken,
         });
         

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import axiosInstance from '@/lib/axios';
 
 interface User {
   id: string;
@@ -37,11 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         
-        // Set default authorization header for all requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
         // Fetch user profile
-        const response = await axios.get('/api/auth/profile');
+        const response = await axiosInstance.get('/auth/profile');
         setUser(response.data);
       } catch (error) {
         console.error('Authentication error:', error);
@@ -58,16 +55,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await axiosInstance.post('/auth/login', { email, password });
       
       const { accessToken, refreshToken, user } = response.data;
       
       // Store tokens
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      
-      // Set default authorization header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       
       setUser(user);
       router.push('/');
@@ -82,16 +76,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     try {
       setLoading(true);
-      const response = await axios.post('/api/auth/register', { name, email, password });
+      const response = await axiosInstance.post('/auth/register', { name, email, password });
       
       const { accessToken, refreshToken, user } = response.data;
       
       // Store tokens
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      
-      // Set default authorization header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       
       setUser(user);
       router.push('/');
@@ -107,9 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Remove tokens
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    
-    // Remove authorization header
-    delete axios.defaults.headers.common['Authorization'];
     
     setUser(null);
     router.push('/login');

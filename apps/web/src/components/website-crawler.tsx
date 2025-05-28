@@ -11,7 +11,7 @@ import type { Source } from "@/app/page"
 import { formatFileSize } from "@/app/page"
 
 interface WebsiteCrawlerProps {
-  onAddSource: (source: Source) => void
+  onAddSource: (sources: Source[]) => void
   sources: Source[]
   onRemoveSource: (id: string) => void
 }
@@ -41,7 +41,7 @@ export function WebsiteCrawler({ onAddSource, sources, onRemoveSource }: Website
       }
     }
 
-    onAddSource(source)
+    onAddSource([source])
     setUrl("")
   }
 
@@ -61,7 +61,7 @@ export function WebsiteCrawler({ onAddSource, sources, onRemoveSource }: Website
       }
     }
 
-    onAddSource(source)
+    onAddSource([source])
     setUrl("")
   }
 
@@ -81,7 +81,7 @@ export function WebsiteCrawler({ onAddSource, sources, onRemoveSource }: Website
       }
     }
 
-    onAddSource(source)
+    onAddSource([source])
     setUrl("")
   }
 

@@ -1,250 +1,341 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
-import axios from "@/lib/axios"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Header } from "@/components/header"
-import { SourcesSidebar } from "@/components/sources-sidebar"
-import { useToast } from "@/hooks/use-toast"
-import { Sidebar } from "@/components/sidebar"
-import type { Source } from "@/app/page"
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import axios from '@/lib/axios';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { Header } from '@/components/header';
+import { MobileSidebar } from '@/components/mobile-sidebar';
+
+interface Source {
+  id: string;
+  name: string;
+  type: string;
+  fileSize?: number;
+  mimeType?: string;
+  url?: string;
+}
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  metadata?: {
+    sources?: string[];
+  };
+}
 
 interface Agent {
-  id: string
-  name: string
-  description: string
-  createdAt: string
-  sources: Source[]
+  id: string;
+  name: string;
+  description: string;
   settings: {
-    model: string
-    temperature: number
-    systemPrompt: string
-  }
+    model: string;
+    temperature: number;
+    systemPrompt: string;
+  };
+  sources: Source[];
 }
 
 export default function AgentDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const { toast } = useToast()
-  const [agent, setAgent] = useState<Agent | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"files" | "text" | "website" | "qa" | "notion">("files")
+  const params = useParams();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('chat');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (params.id) {
-      fetchAgent(params.id as string)
+      fetchAgent(params.id as string);
     }
-  }, [params.id])
+  }, [params.id]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const fetchAgent = async (id: string) => {
     try {
-      setLoading(true)
-      const response = await axios.get(`/api/agents/${id}`)
-      setAgent(response.data)
+      setLoading(true);
+      const response = await axios.get(`/api/agents/${id}`);
+      setAgent(response.data);
+      
+      // Add welcome message
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: `Hello! I'm ${response.data.name}. How can I help you today?`,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } catch (error) {
-      console.error('Error fetching agent:', error)
+      console.error('Error fetching agent:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch agent details",
-        variant: "destructive",
-      })
+        title: 'Error',
+        description: 'Failed to load agent details',
+        variant: 'destructive',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const handleDeleteAgent = async () => {
-    if (!agent) return
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    if (!confirm("Are you sure you want to delete this agent? This action cannot be undone.")) {
-      return
-    }
+    if (!input.trim() || !agent || sending) return;
+    
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+      createdAt: new Date().toISOString(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setSending(true);
     
     try {
-      await axios.delete(`/api/agents/${agent.id}`)
-      toast({
-        title: "Success",
-        description: "Agent deleted successfully",
-      })
-      router.push('/agents')
+      const response = await axios.post(`/api/agents/${agent.id}/chat`, {
+        message: input,
+        conversationId,
+      });
+      
+      const { message, conversationId: newConversationId } = response.data;
+      
+      // Set conversation ID if this is the first message
+      if (!conversationId) {
+        setConversationId(newConversationId);
+      }
+      
+      setMessages(prev => [...prev, {
+        ...message,
+        createdAt: message.createdAt || new Date().toISOString(),
+      }]);
     } catch (error) {
-      console.error('Error deleting agent:', error)
+      console.error('Error sending message:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete agent",
-        variant: "destructive",
-      })
+        title: 'Error',
+        description: 'Failed to send message',
+        variant: 'destructive',
+      });
+      
+      // Add error message
+      setMessages(prev => [...prev, {
+        id: 'error-' + Date.now(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        createdAt: new Date().toISOString(),
+      }]);
+    } finally {
+      setSending(false);
     }
-  }
-
-  const handleEditAgent = () => {
-    if (!agent) return
-    router.push(`/agents/${agent.id}/edit`)
-  }
+  };
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="flex flex-col min-h-screen">
         <Header />
-        <div className="flex flex-1 overflow-hidden">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-          <main className="flex-1 p-8 overflow-y-auto">
-            <div className="flex justify-center items-center h-64">
-              <div className="w-16 h-16 border-4 border-t-primary border-opacity-50 rounded-full animate-spin"></div>
+        <div className="flex flex-1">
+          <MobileSidebar />
+          <main className="flex-1 p-6">
+            <div className="flex justify-center items-center h-full">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           </main>
         </div>
       </div>
-    )
+    );
   }
 
   if (!agent) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="flex flex-col min-h-screen">
         <Header />
-        <div className="flex flex-1 overflow-hidden">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-          <main className="flex-1 p-8 overflow-y-auto">
-            <div className="text-center py-16">
-              <h2 className="text-2xl font-bold mb-2">Agent not found</h2>
-              <p className="text-muted-foreground mb-6">The agent you're looking for doesn't exist or you don't have access to it.</p>
-              <Button onClick={() => router.push('/agents')}>Back to Agents</Button>
+        <div className="flex flex-1">
+          <MobileSidebar />
+          <main className="flex-1 p-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4">Agent not found</h2>
+              <Button onClick={() => router.push('/agents')}>
+                Back to Agents
+              </Button>
             </div>
           </main>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen">
       <Header />
       
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <MobileSidebar />
         
-        <main className="flex-1 p-8 overflow-y-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold">{agent.name}</h1>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleEditAgent}>Edit Agent</Button>
-              <Button variant="destructive" onClick={handleDeleteAgent}>Delete Agent</Button>
+        <main className="flex-1 overflow-hidden">
+          <div className="border-b p-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold">{agent.name}</h1>
+              <Button variant="outline" onClick={() => router.push('/agents')}>
+                Back to Agents
+              </Button>
             </div>
+            {agent.description && (
+              <p className="text-muted-foreground mt-1">{agent.description}</p>
+            )}
           </div>
           
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as "files" | "text" | "website" | "qa" | "notion")}
-            className="w-full"
-          >
-            <TabsList className="mb-6">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-[calc(100vh-120px)]">
+            <TabsList className="px-4 pt-2">
               <TabsTrigger value="chat">Chat</TabsTrigger>
+              <TabsTrigger value="sources">Sources</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="overview">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Agent Details</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-                        <p>{agent.description || "No description"}</p>
+            <TabsContent value="chat" className="flex flex-col h-full p-0">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map((message) => (
+                  <div 
+                    key={message.id} 
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div 
+                      className={`max-w-[80%] rounded-lg p-3 ${
+                        message.role === 'user' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted'
+                      }`}
+                    >
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      <div className="text-xs mt-1 opacity-70">
+                        {new Date(message.createdAt).toLocaleTimeString()}
                       </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground">Created</h3>
-                        <p>{new Date(agent.createdAt).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground">Model</h3>
-                        <p>{agent.settings?.model || "Default"}</p>
+                      
+                      {message.metadata?.sources && message.metadata.sources.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-muted-foreground/20">
+                          <p className="text-xs font-medium">Sources:</p>
+                          <ul className="text-xs mt-1">
+                            {message.metadata.sources.map((sourceId, index) => (
+                              <li key={index} className="truncate">
+                                Source {index + 1}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {sending && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+                      <div className="flex space-x-2">
+                        <div className="w-2 h-2 rounded-full bg-current animate-bounce"></div>
+                        <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.2s]"></div>
+                        <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.4s]"></div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                )}
                 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sources ({agent.sources?.length || 0})</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {agent.sources?.length > 0 ? (
-                      <ul className="space-y-2">
-                        {agent.sources.map((source) => (
-                          <li key={source.id} className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <span className="text-sm">{source.name}</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {formatFileSize(source.size)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-muted-foreground">No sources added</p>
-                    )}
-                  </CardContent>
-                </Card>
+                <div ref={messagesEndRef} />
+              </div>
+              
+              <div className="p-4 border-t">
+                <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type your message..."
+                    disabled={sending}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={sending || !input.trim()}>
+                    Send
+                  </Button>
+                </form>
               </div>
             </TabsContent>
             
-            <TabsContent value="chat">
+            <TabsContent value="sources" className="p-4 overflow-y-auto h-full">
               <Card>
                 <CardHeader>
-                  <CardTitle>Chat with {agent.name}</CardTitle>
+                  <CardTitle>Sources ({agent.sources.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-center py-8 text-muted-foreground">Chat interface will be implemented here</p>
+                  {agent.sources.length > 0 ? (
+                    <div className="space-y-2">
+                      {agent.sources.map((source) => (
+                        <div key={source.id} className="flex justify-between items-center p-3 border rounded-md">
+                          <div>
+                            <div className="font-medium">{source.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {source.type}
+                              {source.fileSize && ` • ${formatFileSize(source.fileSize)}`}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No sources added yet</p>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
             
-            <TabsContent value="settings">
+            <TabsContent value="settings" className="p-4 overflow-y-auto h-full">
               <Card>
                 <CardHeader>
                   <CardTitle>Agent Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-center py-8 text-muted-foreground">Settings interface will be implemented here</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="analytics">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Analytics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-center py-8 text-muted-foreground">Analytics interface will be implemented here</p>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-medium mb-1">Model</h3>
+                      <p className="text-muted-foreground">{agent.settings.model}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-medium mb-1">Temperature</h3>
+                      <p className="text-muted-foreground">{agent.settings.temperature}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-medium mb-1">System Prompt</h3>
+                      <p className="text-muted-foreground whitespace-pre-wrap">{agent.settings.systemPrompt}</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </main>
-        
-        <SourcesSidebar 
-          sources={agent.sources || []} 
-          totalSize={agent.sources?.reduce((total, source) => total + source.size, 0) || 0}
-          maxSize={400 * 1024} // 400 KB
-          readOnly
-        />
       </div>
     </div>
-  )
+  );
 }
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + " B"
-  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
-  else return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+  if (bytes < 1024) return bytes + ' B';
+  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  else return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }

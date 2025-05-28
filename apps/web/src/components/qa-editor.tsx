@@ -10,7 +10,7 @@ import type { Source } from "@/app/page"
 import { formatFileSize } from "@/app/page"
 
 interface QAEditorProps {
-  onAddSource: (source: Source) => void
+  onAddSource: (sources: Source[]) => void
   sources: Source[]
   onRemoveSource: (id: string) => void
 }
@@ -45,7 +45,7 @@ export function QAEditor({ onAddSource, sources, onRemoveSource }: QAEditorProps
       }
     }
 
-    onAddSource(source)
+    onAddSource([source])
     setTitle("")
     setQuestion("")
     setAnswer("")
