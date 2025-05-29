@@ -8,15 +8,17 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import type { Source } from '@/app/page';
 import { formatFileSize } from '@/app/page';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface FileUploadProps {
   agentId: string;
   onUploadComplete: (sources: Source[]) => void;
   sources?: any[];
   onRemoveSource?: (id: string) => void;
+  isAuthenticated: boolean;
 }
 
-export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSource }: FileUploadProps) {
+export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSource, isAuthenticated }: FileUploadProps) {
   console.log('FileUpload rendered');
   console.log('FileUpload sources prop:', sources);
   console.log('FileUpload sources length:', sources.length);
@@ -24,8 +26,9 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated: authIsAuthenticated } = useAuth();
   const router = useRouter();
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -56,7 +59,7 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
   };
 
   const handleFiles = async (files: FileList) => {
-    if (!isAuthenticated) {
+    if (!authIsAuthenticated) {
       toast({
         title: 'Authentication required',
         description: 'Please log in to upload files',
@@ -99,7 +102,7 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
   };
 
   const uploadFile = async (file: File) => {
-    if (!isAuthenticated) {
+    if (!authIsAuthenticated) {
       toast({
         title: 'Authentication required',
         description: 'Please log in to upload files',
@@ -177,6 +180,22 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
     }
   };
 
+  const handleSelectAllFiles = (checked: boolean) => {
+    if (checked) {
+      setSelectedFiles(sources.map(source => source.id));
+    } else {
+      setSelectedFiles([]);
+    }
+  };
+
+  const handleSelectFile = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedFiles([...selectedFiles, id]);
+    } else {
+      setSelectedFiles(selectedFiles.filter(i => i !== id));
+    }
+  };
+
   return (
     <div
       className={`border-2 border-dashed rounded-lg p-6 text-center ${
@@ -217,26 +236,56 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
         If you're uploading a PDF, make sure the text is selectable/highlightable.
       </p>
       {sources.length > 0 && (
-        <div className="mt-4 border-t border-gray-200 pt-4" style={{ border: '1px solid red' }}>
-          <h4 className="text-lg font-medium mb-2">Uploaded Files</h4>
-          <ul className="space-y-2">
+        <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
+           <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Checkbox
+                id="select-all-files"
+                 checked={selectedFiles.length === sources.length && sources.length > 0}
+                 onCheckedChange={(checked) => handleSelectAllFiles(checked as boolean)}
+                className="mr-3"
+              />
+               <h3 className="font-medium">Uploaded Files</h3>
+             </div>
+           </div>
+          <div className="divide-y divide-gray-100 border border-gray-200 rounded-md">
             {sources.map(source => (
-              <li key={source.id} className="flex justify-between items-center text-sm text-gray-700">
-                <span>{source.name} ({formatFileSize(source.size)})</span>
-                {/* Sil butonu */}
+              <div key={source.id} className="p-4 flex items-center justify-between text-sm text-gray-700">
+                 <Checkbox
+                   id={`file-${source.id}`}
+                   checked={selectedFiles.includes(source.id)}
+                   onCheckedChange={(checked) => handleSelectFile(source.id, checked as boolean)}
+                   className="mr-3 flex-shrink-0"
+                 />
+                  <div className="flex-1 flex items-center min-w-0">
+                     <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0">
+                        <FileIcon className="h-4 w-4 text-gray-500" />
+                     </div>
+                    <div className="flex-1 min-w-0">
+                       <div className="flex items-center">
+                         <p className="text-sm font-medium text-gray-900 truncate mr-2">{source.name}</p>
+                         {source.isNew && (
+                           <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded flex-shrink-0">
+                             New
+                           </span>
+                         )}
+                       </div>
+                       <p className="text-xs text-gray-500">{formatFileSize(source.size)}</p>
+                    </div>
+                  </div>
                 {onRemoveSource && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 flex-shrink-0"
                     onClick={() => onRemoveSource(source.id)}
                   >
                     Remove
                   </Button>
                 )}
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
     </div>
@@ -244,5 +293,21 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
 }
 
 function FileIcon(props: React.SVGProps<SVGSVGElement>) {
-  // ... existing code ...
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
 }

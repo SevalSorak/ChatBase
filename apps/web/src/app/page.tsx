@@ -12,6 +12,8 @@ import { NotionIntegration } from "@/components/notion-integration"
 import { PurchaseAddon } from "@/components/purchase-addon"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
+import axios from "@/lib/axios"
+import { useRouter } from "next/navigation"
 
 export type SourceType = "file" | "text" | "link" | "qa" | "notion"
 
@@ -31,10 +33,27 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"files" | "text" | "website" | "qa" | "notion">("files")
   const [sources, setSources] = useState<Source[]>([])
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   const totalSize = sources.reduce((total, source) => total + source.size, 0)
   const maxSize = 400 * 1024 // 400 KB
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        setIsAuthenticated(true);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      } else {
+        const isLoggedIn = await login();
+        setIsAuthenticated(isLoggedIn);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const handleAddSource = (newSources: Source[]) => {
     console.log('handleAddSource called with:', newSources);
@@ -65,12 +84,6 @@ export default function Home() {
       return
     }
 
-    // Simulate checking if user can create more agents
-    if (Math.random() > 0.5) {
-      setShowPurchaseModal(true)
-      return
-    }
-
     toast({
       title: "Agent created",
       description: `Created agent with ${sources.length} source${sources.length !== 1 ? "s" : ""}`,
@@ -91,6 +104,7 @@ export default function Home() {
           onUploadComplete={handleAddSource} 
           sources={getSourcesByType("file")} 
           onRemoveSource={handleRemoveSource} 
+          isAuthenticated={isAuthenticated}
         />
       case "text":
         return <TextEditor onAddSource={handleAddSource} sources={getSourcesByType("text")} onRemoveSource={handleRemoveSource} />
@@ -104,6 +118,35 @@ export default function Home() {
         return null
     }
   }
+
+  const login = async () => {
+    try {
+      const response = await axios.post('/auth/login', {
+        email: 'testseval1@gmail.com',
+        password: 'testseval'
+      });
+
+      const token = response.data.access_token;
+      localStorage.setItem('token', token);
+
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      toast({
+        title: "Login successful",
+        description: "You are now logged in",
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login failed",
+        description: error.response?.data?.message || "Failed to login",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
