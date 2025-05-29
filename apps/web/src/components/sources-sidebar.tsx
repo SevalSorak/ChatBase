@@ -12,8 +12,6 @@ interface SourcesSidebarProps {
 }
 
 export function SourcesSidebar({ sources, totalSize, maxSize, onCreateAgent }: SourcesSidebarProps) {
-  console.log('SourcesSidebar rendered');
-  console.log('Sources prop:', sources);
   const fileCount = sources.filter(s => s.type === "file").length
   const textCount = sources.filter(s => s.type === "text").length
   const linkCount = sources.filter(s => s.type === "link").length

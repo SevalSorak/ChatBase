@@ -19,9 +19,6 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSource, isAuthenticated }: FileUploadProps) {
-  console.log('FileUpload rendered');
-  console.log('FileUpload sources prop:', sources);
-  console.log('FileUpload sources length:', sources.length);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +56,17 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
   };
 
   const handleFiles = async (files: FileList) => {
-    if (!authIsAuthenticated) {
+    console.log('Entering handleFiles function');
+    console.log('Token in localStorage at handleFiles start:', localStorage.getItem('token'));
+    console.log('isAuthenticated prop value:', isAuthenticated);
+
+    if (!isAuthenticated) {
+      console.warn('User not authenticated, redirecting to login.');
+      console.log('Final check - Token in localStorage before redirect:', localStorage.getItem('token'));
+      console.log('Final check - isAuthenticated prop before redirect:', isAuthenticated);
+
+      debugger;
+
       toast({
         title: 'Authentication required',
         description: 'Please log in to upload files',

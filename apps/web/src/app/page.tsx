@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { SourcesSidebar } from "@/components/sources-sidebar"
@@ -34,6 +34,9 @@ export default function Home() {
   const [sources, setSources] = useState<Source[]>([])
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [agentName, setAgentName] = useState("")
+  const [agentDescription, setAgentDescription] = useState("")
   const { toast } = useToast()
   const router = useRouter()
 
@@ -43,11 +46,14 @@ export default function Home() {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
-      if (token) {
+      let isLoggedIn = false;
+
+      if (token && token !== 'undefined') {
+        isLoggedIn = true;
         setIsAuthenticated(true);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       } else {
-        const isLoggedIn = await login();
+        isLoggedIn = await login();
         setIsAuthenticated(isLoggedIn);
       }
     };
@@ -56,7 +62,6 @@ export default function Home() {
   }, []);
 
   const handleAddSource = (newSources: Source[]) => {
-    console.log('handleAddSource called with:', newSources);
     const formattedSources = newSources.map(source => ({
       ...source,
       size: source.fileSize || 0,
@@ -74,7 +79,7 @@ export default function Home() {
     setSources((prev) => prev.filter((source) => source.id !== id))
   }
 
-  const handleCreateAgent = () => {
+  const handleCreateAgent = async () => {
     if (sources.length === 0) {
       toast({
         title: "No sources added",
@@ -84,16 +89,87 @@ export default function Home() {
       return
     }
 
-    toast({
-      title: "Agent created",
-      description: `Created agent with ${sources.length} source${sources.length !== 1 ? "s" : ""}`,
-    })
-  }
+    try {
+      setIsCreating(true);
+
+      const { data: agent } = await axios.post('/agents', {
+        name: agentName || 'New Agent',
+        description: agentDescription || `Agent created with ${sources.length} sources`,
+      })
+
+      for (const source of sources) {
+        try {
+          switch (source.type) {
+            case 'text':
+              await axios.post(`/agents/${agent.id}/sources/text`, {
+                title: source.name,
+                content: source.content,
+              })
+              break
+
+            case 'link':
+              await axios.post(`/agents/${agent.id}/sources/links`, {
+                url: source.url,
+                includePaths: source.metadata?.includePaths,
+                excludePaths: source.metadata?.excludePaths,
+              })
+              break
+
+            case 'qa':
+              await axios.post(`/agents/${agent.id}/sources/qa`, {
+                title: source.name,
+                questions: source.metadata?.questions,
+              })
+              break
+
+            case 'file':
+              // Files are already uploaded and associated with the agent
+              // during the initial file upload process
+              // Backend logic suggests files are added via POST /api/agents/:id/sources/file
+              // This might be redundant if already linked on upload, need backend confirm
+              // For now, assuming file is linked during initial upload and no action needed here.
+              break
+            case 'notion':
+              // Notion sources might need specific handling
+              console.warn('Notion source type not fully implemented in handleCreateAgent');
+              break;
+          }
+
+        } catch (error: any) {
+          console.error(`Error adding source ${source.name}:`, error)
+          toast({
+            title: "Error adding source",
+            description: `Failed to add ${source.name}: ${error.response?.data?.message || error.message}`,
+            variant: "destructive",
+          })
+        }
+      }
+
+      setSources([]);
+      setAgentName("");
+      setAgentDescription("");
+
+      toast({
+        title: "Agent created successfully",
+        description: `Created agent with ${sources.length} sources`,
+      })
+
+      router.push(`/agents/${agent.id}`);
+
+    } catch (error: any) {
+      console.error('Error creating agent:', error);
+      toast({
+        title: "Error creating agent",
+        description: error.response?.data?.message || "Failed to create agent",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const getSourcesByType = (type: SourceType) => {
-    const filtered = sources.filter((source) => source.type === type);
-    console.log(`Sources of type ${type}:`, filtered);
-    return filtered;
+    return sources.filter((source) => source.type === type);
   }
 
   const renderContent = () => {
@@ -126,9 +202,13 @@ export default function Home() {
         password: 'testseval'
       });
 
-      const token = response.data.access_token;
-      localStorage.setItem('token', token);
+      const token = response.data.accessToken;
 
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+
+      localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
       toast({
@@ -138,7 +218,6 @@ export default function Home() {
 
       return true;
     } catch (error: any) {
-      console.error("Login error:", error);
       toast({
         title: "Login failed",
         description: error.response?.data?.message || "Failed to login",
@@ -168,6 +247,7 @@ export default function Home() {
           totalSize={totalSize} 
           maxSize={maxSize} 
           onCreateAgent={handleCreateAgent} 
+          isCreating={isCreating}
         />
       </div>
 
