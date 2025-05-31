@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import axios from '@/lib/axios';
@@ -16,16 +16,53 @@ interface FileUploadProps {
   sources?: any[];
   onRemoveSource?: (id: string) => void;
   isAuthenticated: boolean;
+  onFilesSelected?: (files: File[]) => void;
+  selectedFiles?: File[];
 }
 
-export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSource, isAuthenticated }: FileUploadProps) {
-  const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+// New type to hold file and its checked state
+type FileWithChecked = { file: File; checked: boolean };
+
+export function FileUpload(props: FileUploadProps) {
+  console.log("FileUpload received ALL props:", props);
+  const { agentId, onUploadComplete, sources = [], onRemoveSource, isAuthenticated, onFilesSelected } = props;
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // Initialize with empty array
+  const isFirstRender = useRef(true);
+  const prevSelectedFilesRef = useRef<File[]>([]);
+  
+  console.log("FileUpload internal selectedFiles state:", selectedFiles);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { isAuthenticated: authIsAuthenticated } = useAuth();
   const router = useRouter();
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+
+  // Use a local state for dragging/uploading if needed, or manage externally
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Effect to notify parent when selectedFiles changes
+  useEffect(() => {
+    console.log("FileUpload useEffect triggered by selectedFiles change:", selectedFiles);
+    
+    // Skip the first render
+    if (isFirstRender.current) {
+      console.log("Skipping first render notification");
+      isFirstRender.current = false;
+      prevSelectedFilesRef.current = selectedFiles;
+      return;
+    }
+
+    // Check if files actually changed
+    const filesChanged = selectedFiles.length !== prevSelectedFilesRef.current.length ||
+      selectedFiles.some((file, index) => file !== prevSelectedFilesRef.current[index]);
+
+    if (filesChanged && onFilesSelected) {
+      console.log("Files changed, notifying parent:", selectedFiles);
+      onFilesSelected(selectedFiles);
+      prevSelectedFilesRef.current = selectedFiles;
+    }
+  }, [selectedFiles, onFilesSelected]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -45,28 +82,36 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
     setDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Instead of setting internal state, pass files up via a new prop or re-use onFilesSelected
+      // Let's re-use onFilesSelected for now, assuming parent will update the selectedFiles prop
       handleFiles(e.dataTransfer.files);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("handleFileChange called, files:", e.target.files);
     if (e.target.files && e.target.files.length > 0) {
+      console.log("First file details:", {
+        name: e.target.files[0].name,
+        type: e.target.files[0].type,
+        size: e.target.files[0].size
+      });
+      // Instead of setting internal state, pass files up via onFilesSelected
       handleFiles(e.target.files);
     }
   };
 
-  const handleFiles = async (files: FileList) => {
-    console.log('Entering handleFiles function');
-    console.log('Token in localStorage at handleFiles start:', localStorage.getItem('token'));
-    console.log('isAuthenticated prop value:', isAuthenticated);
-
-    if (!isAuthenticated) {
+  const handleFiles = (files: FileList) => {
+    console.log("handleFiles called with files:", files);
+    console.log("First file details in handleFiles:", {
+      name: files[0].name,
+      type: files[0].type,
+      size: files[0].size
+    });
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token || !isAuthenticated) {
       console.warn('User not authenticated, redirecting to login.');
-      console.log('Final check - Token in localStorage before redirect:', localStorage.getItem('token'));
-      console.log('Final check - isAuthenticated prop before redirect:', isAuthenticated);
-
-      debugger;
-
       toast({
         title: 'Authentication required',
         description: 'Please log in to upload files',
@@ -77,7 +122,8 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
     }
 
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-    
+    const validFiles: File[] = [];
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
@@ -99,108 +145,28 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
         continue;
       }
       
-      await uploadFile(file);
+      validFiles.push(file);
     }
-    
-    // Reset file input
+
+    // Update internal state only
+    setSelectedFiles(prevFiles => {
+      const updatedFiles = [...prevFiles, ...validFiles];
+      console.log("Updating selectedFiles state with:", updatedFiles);
+      return updatedFiles;
+    });
+
+    // Reset file input value to allow selecting the same file again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const uploadFile = async (file: File) => {
-    if (!authIsAuthenticated) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please log in to upload files',
-        variant: 'destructive',
-      });
-      router.push('/login');
-      return;
-    }
-
-    if (!agentId || agentId === 'new') {
-      try {
-        // Create new agent first
-        const { data: agent } = await axios.post('/agents', {
-          name: file.name.split('.')[0],
-          description: `Agent created from ${file.name}`,
-        });
-        
-        // Use the new agent's ID
-        agentId = agent.id;
-      } catch (error: any) {
-        console.error('Agent creation error:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to create agent. Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('files', file);
-      
-      const { data } = await axios.post(`/agents/${agentId}/sources/files`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      toast({
-        title: 'File uploaded',
-        description: `${file.name} has been uploaded successfully`,
-      });
-      
-      onUploadComplete(data);
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      
-      if (error.response) {
-        // Sunucu cevap verdi ama hata döndü
-        toast({
-          title: `Upload failed (${error.response.status})`,
-          description: error.response.data?.error ?? 'Unknown server error',
-          variant: 'destructive',
-        });
-      } else if (error.request) {
-        // İstek atıldı ama cevap yok
-        toast({
-          title: 'Connection error',
-          description: 'Could not reach the server. Is the backend running?',
-          variant: 'destructive',
-        });
-      } else {
-        // Axios hatası
-        toast({
-          title: 'Upload failed',
-          description: error.message,
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSelectAllFiles = (checked: boolean) => {
-    if (checked) {
-      setSelectedFiles(sources.map(source => source.id));
-    } else {
-      setSelectedFiles([]);
-    }
-  };
-
-  const handleSelectFile = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedFiles([...selectedFiles, id]);
-    } else {
-      setSelectedFiles(selectedFiles.filter(i => i !== id));
-    }
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prevFiles => {
+      const updatedFiles = prevFiles.filter((_, i) => i !== index);
+      console.log("Removing file at index:", index, "Updated files:", updatedFiles);
+      return updatedFiles;
+    });
   };
 
   return (
@@ -233,7 +199,10 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
         />
         <Button 
           variant="outline" 
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            console.log("Select Files button clicked, attempting to click file input");
+            fileInputRef.current?.click();
+          }}
           disabled={uploading}
         >
           {uploading ? 'Uploading...' : 'Select Files'}
@@ -242,44 +211,70 @@ export function FileUpload({ agentId, onUploadComplete, sources = [], onRemoveSo
       <p className="text-xs text-muted-foreground mt-4">
         If you're uploading a PDF, make sure the text is selectable/highlightable.
       </p>
+      
+      {selectedFiles && selectedFiles.length > 0 && (
+        <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium">Selected Files</h3>
+          </div>
+          <div className="divide-y divide-gray-100 border border-gray-200 rounded-md">
+            {selectedFiles.map((file, index) => (
+              <div
+                key={index}
+                className="p-4 flex items-center justify-between text-sm text-gray-700"
+              >
+                {/* 1. Sol taraf: Checkbox + ikon + isim */}
+                <div className="flex items-center space-x-2">
+                  {/* Checkbox - Checkbox state should probably be managed by parent if using selectedFiles prop */}
+                  {/* Keeping checkbox for now, but its state management needs reconsideration in this prop-based approach */}
+                  {/* Maybe a separate prop like onFileCheckedChange is needed if checkbox state is managed externally */}
+                  {/* <Checkbox\n                    checked={true} // Assuming files in selectedFiles are conceptually checked for adding\n                    onCheckedChange={(checked) => { */}
+                    {/* This needs to inform the parent to update the checked state of a specific file */}
+                    {/* This flow becomes complicated without a clear state management strategy */}
+                    {/* console.log("Checkbox checked change for file index", index, ":", checked);\n                    }}\n                  /> */}
+                  {/* File ikonu */}
+                  <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <FileIcon className="h-4 w-4 text-gray-500" />
+                  </div>
+                  {/* Dosya adı ve boyut */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                  </div>
+                </div>
+
+                {/* 2. Sağ taraf: Remove butonu */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500 hover:text-red-700 flex-shrink-0"
+                  onClick={() => removeSelectedFile(index)}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {sources.length > 0 && (
         <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <Checkbox
-                id="select-all-files"
-                 checked={selectedFiles.length === sources.length && sources.length > 0}
-                 onCheckedChange={(checked) => handleSelectAllFiles(checked as boolean)}
-                className="mr-3"
-              />
-               <h3 className="font-medium">Uploaded Files</h3>
-             </div>
-           </div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium">Uploaded Files</h3>
+          </div>
           <div className="divide-y divide-gray-100 border border-gray-200 rounded-md">
             {sources.map(source => (
               <div key={source.id} className="p-4 flex items-center justify-between text-sm text-gray-700">
-                 <Checkbox
-                   id={`file-${source.id}`}
-                   checked={selectedFiles.includes(source.id)}
-                   onCheckedChange={(checked) => handleSelectFile(source.id, checked as boolean)}
-                   className="mr-3 flex-shrink-0"
-                 />
-                  <div className="flex-1 flex items-center min-w-0">
-                     <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0">
-                        <FileIcon className="h-4 w-4 text-gray-500" />
-                     </div>
-                    <div className="flex-1 min-w-0">
-                       <div className="flex items-center">
-                         <p className="text-sm font-medium text-gray-900 truncate mr-2">{source.name}</p>
-                         {source.isNew && (
-                           <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded flex-shrink-0">
-                             New
-                           </span>
-                         )}
-                       </div>
-                       <p className="text-xs text-gray-500">{formatFileSize(source.size)}</p>
-                    </div>
+                <div className="flex-1 flex items-center min-w-0">
+                  <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0">
+                    <FileIcon className="h-4 w-4 text-gray-500" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{source.name}</p>
+                    <p className="text-xs text-gray-500">{formatFileSize(source.size)}</p>
+                  </div>
+                </div>
                 {onRemoveSource && (
                   <Button
                     variant="ghost"

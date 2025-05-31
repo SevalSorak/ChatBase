@@ -181,6 +181,17 @@ export default function Home() {
           sources={getSourcesByType("file")} 
           onRemoveSource={handleRemoveSource} 
           isAuthenticated={isAuthenticated}
+          onFilesSelected={(files) => {
+            const newSources = files.map(file => ({
+              id: Math.random().toString(),
+              type: "file",
+              name: file.name,
+              size: file.size,
+              isNew: true,
+              file: file,
+            }));
+            handleAddSource(newSources as any);
+          }}
         />
       case "text":
         return <TextEditor onAddSource={handleAddSource} sources={getSourcesByType("text")} onRemoveSource={handleRemoveSource} />

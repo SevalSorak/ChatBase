@@ -72,7 +72,7 @@ export default function AgentDetailPage() {
   const fetchAgent = async (id: string) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/agents/${id}`);
+      const response = await axios.get(`/agents/${id}`);
       setAgent(response.data);
       
       // Add welcome message
@@ -113,7 +113,7 @@ export default function AgentDetailPage() {
     setSending(true);
     
     try {
-      const response = await axios.post(`/api/agents/${agent.id}/chat`, {
+      const response = await axios.post(`/agents/${agent.id}/chat`, {
         message: input,
         conversationId,
       });
@@ -310,20 +310,24 @@ export default function AgentDetailPage() {
                   <CardTitle>Agent Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-medium mb-1">Model</h3>
-                      <p className="text-muted-foreground">{agent.settings.model}</p>
+                  {agent && agent.settings ? (
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-medium mb-1">Model</h3>
+                        <p className="text-muted-foreground">{agent.settings.model}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium mb-1">Temperature</h3>
+                        <p className="text-muted-foreground">{agent.settings.temperature}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium mb-1">System Prompt</h3>
+                        <p className="text-muted-foreground whitespace-pre-wrap">{agent.settings.systemPrompt}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-medium mb-1">Temperature</h3>
-                      <p className="text-muted-foreground">{agent.settings.temperature}</p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">System Prompt</h3>
-                      <p className="text-muted-foreground whitespace-pre-wrap">{agent.settings.systemPrompt}</p>
-                    </div>
-                  </div>
+                  ) : (
+                    <p className="text-muted-foreground">Settings not available.</p>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
