@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Source } from "@/app/page"
-import { formatFileSize } from "@/app/page"
+import { formatFileSize } from '@/lib/utils'
 
 interface TextEditorProps {
   onAddSource: (sources: Source[]) => void

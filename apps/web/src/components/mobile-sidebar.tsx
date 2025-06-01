@@ -24,7 +24,10 @@ export function MobileSidebar() {
                 <span className="sr-only">Close menu</span>
               </Button>
             </div>
-            <Sidebar />
+            <Sidebar 
+              activeTab="files"
+              onTabChange={() => {}}
+            />
           </div>
         </div>
       )}

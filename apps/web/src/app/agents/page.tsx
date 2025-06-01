@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import axios from "@/lib/axios"
@@ -9,13 +9,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import { useToast } from "@/hooks/use-toast"
+import { Source } from '@/app/agents/create/page'
 
 interface Agent {
   id: string
   name: string
   description: string
   createdAt: string
-  sources: any[]
+  sources: Source[]
 }
 
 export default function AgentsPage() {
@@ -25,11 +26,7 @@ export default function AgentsPage() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<"files" | "text" | "website" | "qa" | "notion">("files")
 
-  useEffect(() => {
-    fetchAgents()
-  }, [])
-
-  const fetchAgents = async () => {
+  const fetchAgents = useCallback(async () => {
     try {
       setLoading(true)
       const response = await axios.get('/api/agents')
@@ -44,7 +41,11 @@ export default function AgentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    fetchAgents()
+  }, [fetchAgents])
 
   const handleCreateAgent = () => {
     router.push('/agents/create')

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import type { Source } from "@/app/page"
-import { formatFileSize } from "@/app/page"
+import { formatFileSize } from '@/lib/utils'
 
 interface SourcesSidebarProps {
   sources: Source[]
@@ -9,6 +9,7 @@ interface SourcesSidebarProps {
   onCreateAgent?: () => void
   readOnly?: boolean
   isCreating?: boolean
+  onRemovePendingSource?: (index: number) => void
 }
 
 export function SourcesSidebar({ sources, totalSize, maxSize, onCreateAgent }: SourcesSidebarProps) {

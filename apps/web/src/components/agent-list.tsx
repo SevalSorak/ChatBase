@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import axios from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import type { Source } from '@/app/agents/create/page';
 
 interface Agent {
   id: string;
   name: string;
   description: string;
   createdAt: string;
-  sources: any[];
+  sources: Source[];
 }
 
 export function AgentList() {
@@ -20,11 +21,7 @@ export function AgentList() {
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchAgents();
-  }, []);
-
-  const fetchAgents = async () => {
+  const fetchAgents = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/agents');
@@ -39,7 +36,11 @@ export function AgentList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setAgents, setLoading, toast]);
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
 
   const handleCreateAgent = () => {
     router.push('/agents/create');

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Source } from "@/app/page"
-import { formatFileSize } from "@/app/page"
+import { formatFileSize } from '@/lib/utils'
 
 interface QAEditorProps {
   onAddSource: (sources: Source[]) => void
@@ -41,7 +41,10 @@ export function QAEditor({ onAddSource, sources, onRemoveSource }: QAEditorProps
       size: totalSize,
       isNew: true,
       metadata: {
-        questions: questions.length,
+        questions: questions.map(q => ({
+          question: q.question,
+          answer: q.answer
+        }))
       }
     }
 
@@ -227,7 +230,7 @@ export function QAEditor({ onAddSource, sources, onRemoveSource }: QAEditorProps
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {formatFileSize(source.size)} • {source.metadata?.questions} questions
+                      {formatFileSize(source.size)} • {source.metadata?.questions?.length || 0} questions
                     </p>
                   </div>
                 </div>

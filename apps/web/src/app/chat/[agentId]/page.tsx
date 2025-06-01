@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import axios from '@/lib/axios';
 import { Button } from '@/components/ui/button';
@@ -36,21 +36,7 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (params.agentId) {
-      fetchAgent(params.agentId as string);
-    }
-  }, [params.agentId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchAgent = async (id: string) => {
+  const fetchAgent = useCallback(async (id: string) => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/agents/${id}`);
@@ -75,6 +61,20 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
+  }, [setAgent, setLoading, setMessages, toast]);
+
+  useEffect(() => {
+    if (params.agentId) {
+      fetchAgent(params.agentId as string);
+    }
+  }, [params.agentId, fetchAgent]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {

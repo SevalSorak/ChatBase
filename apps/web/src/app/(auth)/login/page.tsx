@@ -96,13 +96,10 @@ export default function LoginPage() {
             >
               {isLoading ? 'Logging in...' : 'Login'}
             </Button>
-            <p className="text-center text-sm">
-              Don't have an account?{' '}
-              <Link 
-                href="/register" 
-                className="text-blue-600 hover:text-blue-800"
-              >
-                Sign up
+            <p className="text-center text-sm text-muted-foreground">
+              Hesabınız yok mu?{' '}
+              <Link href="/register" className="underline">
+                Kaydolun
               </Link>
             </p>
           </CardFooter>

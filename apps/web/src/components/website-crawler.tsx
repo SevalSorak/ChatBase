@@ -8,7 +8,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Source } from "@/app/page"
-import { formatFileSize } from "@/app/page"
 
 interface WebsiteCrawlerProps {
   onAddSource: (sources: Source[]) => void
@@ -149,7 +148,7 @@ export function WebsiteCrawler({ onAddSource, sources, onRemoveSource }: Website
             <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start">
               <AlertCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
               <p className="text-sm text-amber-800">
-                If you add multiple crawl links, they will all be marked as "pending" and will not overwrite one another.
+                If you add multiple crawl links, they will all be marked as &quot;pending&quot; and will not overwrite one another.
               </p>
             </div>
             

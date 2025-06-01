@@ -14,13 +14,20 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Hidden on mobile */}
-        <Sidebar />
+        <Sidebar 
+          activeTab="files"
+          onTabChange={() => {}}
+        />
 
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">{children}</main>
 
         {/* Right Sidebar - Hidden on mobile and tablet */}
-        <SourcesSidebar />
+        <SourcesSidebar 
+          sources={[]}
+          totalSize={0}
+          maxSize={1000000}
+        />
       </div>
     </div>
   )

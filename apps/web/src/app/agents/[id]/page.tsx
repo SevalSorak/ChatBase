@@ -42,93 +42,99 @@ interface Agent {
   sources: Source[];
 }
 
+type TabOption = 'chat' | 'sources' | 'settings';
+
 export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState<TabOption>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // --- 1) agent detaylarını çekmek için useEffect içine fetchAgent'ı koyuyoruz ---
   useEffect(() => {
-    if (params.id) {
-      fetchAgent(params.id as string);
-    }
-  }, [params.id]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchAgent = async (id: string) => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`/agents/${id}`);
-      setAgent(response.data);
-      
-      // Add welcome message
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: `Hello! I'm ${response.data.name}. How can I help you today?`,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-    } catch (error) {
-      console.error('Error fetching agent:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load agent details',
-        variant: 'destructive',
-      });
-    } finally {
+    if (!params.id) {
       setLoading(false);
+      return;
     }
-  };
+
+    const fetchAgent = async (id: string) => {
+      try {
+        setLoading(true);
+        const response = await axios.get<Agent>(`/agents/${id}`);
+        setAgent(response.data);
+
+        // Hoş geldin mesajını ekleyelim
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: `Hello! I'm ${response.data.name}. How can I help you today?`,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      } catch (error) {
+        console.error('Error fetching agent:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load agent details',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAgent(params.id as string);
+  }, [params.id, toast]);
+
+  // --- 2) Mesaj listesini güncelleyince kaydırmak için useEffect ---
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!input.trim() || !agent || sending) return;
-    
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
       createdAt: new Date().toISOString(),
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setSending(true);
-    
+
     try {
-      const response = await axios.post(`/agents/${agent.id}/chat`, {
+      const response = await axios.post<{
+        message: Message;
+        conversationId: string;
+      }>(`/agents/${agent.id}/chat`, {
         message: input,
         conversationId,
       });
-      
+
       const { message, conversationId: newConversationId } = response.data;
-      
-      // Set conversation ID if this is the first message
       if (!conversationId) {
         setConversationId(newConversationId);
       }
-      
-      setMessages(prev => [...prev, {
-        ...message,
-        createdAt: message.createdAt || new Date().toISOString(),
-      }]);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          ...message,
+          createdAt: message.createdAt || new Date().toISOString(),
+        },
+      ]);
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -136,14 +142,17 @@ export default function AgentDetailPage() {
         description: 'Failed to send message',
         variant: 'destructive',
       });
-      
-      // Add error message
-      setMessages(prev => [...prev, {
-        id: 'error-' + Date.now(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        createdAt: new Date().toISOString(),
-      }]);
+
+      // Hata durumunda kullanıcıya gösterilecek yanıt
+      setMessages(prev => [
+        ...prev,
+        {
+          id: 'error-' + Date.now(),
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setSending(false);
     }
@@ -174,9 +183,7 @@ export default function AgentDetailPage() {
           <main className="flex-1 p-6">
             <div className="text-center">
               <h2 className="text-2xl font-bold mb-4">Agent not found</h2>
-              <Button onClick={() => router.push('/agents')}>
-                Back to Agents
-              </Button>
+              <Button onClick={() => router.push('/agents')}>Back to Agents</Button>
             </div>
           </main>
         </div>
@@ -187,10 +194,10 @@ export default function AgentDetailPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <div className="flex flex-1 overflow-hidden">
         <MobileSidebar />
-        
+
         <main className="flex-1 overflow-hidden">
           <div className="border-b p-4">
             <div className="flex justify-between items-center">
@@ -203,25 +210,30 @@ export default function AgentDetailPage() {
               <p className="text-muted-foreground mt-1">{agent.description}</p>
             )}
           </div>
-          
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-[calc(100vh-120px)]">
+
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(val: string) => setActiveTab(val as TabOption)} 
+            className="h-[calc(100vh-120px)]"
+          >
             <TabsList className="px-4 pt-2">
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="sources">Sources</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
-            
+
+            {/* --- Chat Sekmesi --- */}
             <TabsContent value="chat" className="flex flex-col h-full p-0">
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((message) => (
-                  <div 
-                    key={message.id} 
+                  <div
+                    key={message.id}
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div 
+                    <div
                       className={`max-w-[80%] rounded-lg p-3 ${
-                        message.role === 'user' 
-                          ? 'bg-primary text-primary-foreground' 
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
                       }`}
                     >
@@ -229,7 +241,7 @@ export default function AgentDetailPage() {
                       <div className="text-xs mt-1 opacity-70">
                         {new Date(message.createdAt).toLocaleTimeString()}
                       </div>
-                      
+
                       {message.metadata?.sources && message.metadata.sources.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-muted-foreground/20">
                           <p className="text-xs font-medium">Sources:</p>
@@ -245,7 +257,7 @@ export default function AgentDetailPage() {
                     </div>
                   </div>
                 ))}
-                
+
                 {sending && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-muted">
@@ -257,10 +269,10 @@ export default function AgentDetailPage() {
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </div>
-              
+
               <div className="p-4 border-t">
                 <form onSubmit={handleSendMessage} className="flex space-x-2">
                   <Input
@@ -276,7 +288,8 @@ export default function AgentDetailPage() {
                 </form>
               </div>
             </TabsContent>
-            
+
+            {/* --- Sources Sekmesi --- */}
             <TabsContent value="sources" className="p-4 overflow-y-auto h-full">
               <Card>
                 <CardHeader>
@@ -286,7 +299,10 @@ export default function AgentDetailPage() {
                   {agent.sources.length > 0 ? (
                     <div className="space-y-2">
                       {agent.sources.map((source) => (
-                        <div key={source.id} className="flex justify-between items-center p-3 border rounded-md">
+                        <div
+                          key={source.id}
+                          className="flex justify-between items-center p-3 border rounded-md"
+                        >
                           <div>
                             <div className="font-medium">{source.name}</div>
                             <div className="text-xs text-muted-foreground">
@@ -303,14 +319,15 @@ export default function AgentDetailPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
+            {/* --- Settings Sekmesi --- */}
             <TabsContent value="settings" className="p-4 overflow-y-auto h-full">
               <Card>
                 <CardHeader>
                   <CardTitle>Agent Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {agent && agent.settings ? (
+                  {agent.settings ? (
                     <div className="space-y-4">
                       <div>
                         <h3 className="font-medium mb-1">Model</h3>
@@ -338,6 +355,7 @@ export default function AgentDetailPage() {
   );
 }
 
+// Yardımcı fonksiyon: bayt cinsinden dosya boyutunu insan okunabilir hale çevirir
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';

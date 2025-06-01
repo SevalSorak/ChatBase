@@ -1,6 +1,5 @@
-import type React from "react"
+import React from "react"
 import { FileIcon, TextIcon, GlobeIcon, HelpCircleIcon, FileTextIcon } from 'lucide-react'
-import Link from "next/link"
 
 interface SidebarProps {
   activeTab: "files" | "text" | "website" | "qa" | "notion"

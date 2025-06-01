@@ -3,62 +3,44 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import axios from '@/lib/axios';
-import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import type { Source } from '@/app/page';
-import { formatFileSize } from '@/app/page';
-import { Checkbox } from '@/components/ui/checkbox';
+import { formatFileSize } from '@/lib/utils';
 
-interface FileUploadProps {
+export interface FileUploadProps {
   agentId: string;
   onUploadComplete: (sources: Source[]) => void;
-  sources?: any[];
+  sources?: Source[];
   onRemoveSource?: (id: string) => void;
   isAuthenticated: boolean;
   onFilesSelected?: (files: File[]) => void;
   selectedFiles?: File[];
 }
 
-// New type to hold file and its checked state
-type FileWithChecked = { file: File; checked: boolean };
-
 export function FileUpload(props: FileUploadProps) {
-  console.log("FileUpload received ALL props:", props);
-  const { agentId, onUploadComplete, sources = [], onRemoveSource, isAuthenticated, onFilesSelected } = props;
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // Initialize with empty array
+  const { sources = [], onRemoveSource, isAuthenticated, onFilesSelected } = props;
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const isFirstRender = useRef(true);
   const prevSelectedFilesRef = useRef<File[]>([]);
   
-  console.log("FileUpload internal selectedFiles state:", selectedFiles);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { isAuthenticated: authIsAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Use a local state for dragging/uploading if needed, or manage externally
   const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const uploading = false;
 
-  // Effect to notify parent when selectedFiles changes
   useEffect(() => {
-    console.log("FileUpload useEffect triggered by selectedFiles change:", selectedFiles);
-    
-    // Skip the first render
     if (isFirstRender.current) {
-      console.log("Skipping first render notification");
       isFirstRender.current = false;
       prevSelectedFilesRef.current = selectedFiles;
       return;
     }
 
-    // Check if files actually changed
     const filesChanged = selectedFiles.length !== prevSelectedFilesRef.current.length ||
       selectedFiles.some((file, index) => file !== prevSelectedFilesRef.current[index]);
 
     if (filesChanged && onFilesSelected) {
-      console.log("Files changed, notifying parent:", selectedFiles);
       onFilesSelected(selectedFiles);
       prevSelectedFilesRef.current = selectedFiles;
     }
@@ -82,32 +64,17 @@ export function FileUpload(props: FileUploadProps) {
     setDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      // Instead of setting internal state, pass files up via a new prop or re-use onFilesSelected
-      // Let's re-use onFilesSelected for now, assuming parent will update the selectedFiles prop
       handleFiles(e.dataTransfer.files);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("handleFileChange called, files:", e.target.files);
     if (e.target.files && e.target.files.length > 0) {
-      console.log("First file details:", {
-        name: e.target.files[0].name,
-        type: e.target.files[0].type,
-        size: e.target.files[0].size
-      });
-      // Instead of setting internal state, pass files up via onFilesSelected
       handleFiles(e.target.files);
     }
   };
 
   const handleFiles = (files: FileList) => {
-    console.log("handleFiles called with files:", files);
-    console.log("First file details in handleFiles:", {
-      name: files[0].name,
-      type: files[0].type,
-      size: files[0].size
-    });
     const token = localStorage.getItem('accessToken');
     
     if (!token || !isAuthenticated) {
@@ -148,14 +115,11 @@ export function FileUpload(props: FileUploadProps) {
       validFiles.push(file);
     }
 
-    // Update internal state only
     setSelectedFiles(prevFiles => {
       const updatedFiles = [...prevFiles, ...validFiles];
-      console.log("Updating selectedFiles state with:", updatedFiles);
       return updatedFiles;
     });
 
-    // Reset file input value to allow selecting the same file again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -164,7 +128,6 @@ export function FileUpload(props: FileUploadProps) {
   const removeSelectedFile = (index: number) => {
     setSelectedFiles(prevFiles => {
       const updatedFiles = prevFiles.filter((_, i) => i !== index);
-      console.log("Removing file at index:", index, "Updated files:", updatedFiles);
       return updatedFiles;
     });
   };
@@ -200,7 +163,6 @@ export function FileUpload(props: FileUploadProps) {
         <Button 
           variant="outline" 
           onClick={() => {
-            console.log("Select Files button clicked, attempting to click file input");
             fileInputRef.current?.click();
           }}
           disabled={uploading}
@@ -209,7 +171,7 @@ export function FileUpload(props: FileUploadProps) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground mt-4">
-        If you're uploading a PDF, make sure the text is selectable/highlightable.
+        If you&apos;re uploading a PDF, make sure the text is selectable/highlightable.
       </p>
       
       {selectedFiles && selectedFiles.length > 0 && (
@@ -223,27 +185,16 @@ export function FileUpload(props: FileUploadProps) {
                 key={index}
                 className="p-4 flex items-center justify-between text-sm text-gray-700"
               >
-                {/* 1. Sol taraf: Checkbox + ikon + isim */}
                 <div className="flex items-center space-x-2">
-                  {/* Checkbox - Checkbox state should probably be managed by parent if using selectedFiles prop */}
-                  {/* Keeping checkbox for now, but its state management needs reconsideration in this prop-based approach */}
-                  {/* Maybe a separate prop like onFileCheckedChange is needed if checkbox state is managed externally */}
-                  {/* <Checkbox\n                    checked={true} // Assuming files in selectedFiles are conceptually checked for adding\n                    onCheckedChange={(checked) => { */}
-                    {/* This needs to inform the parent to update the checked state of a specific file */}
-                    {/* This flow becomes complicated without a clear state management strategy */}
-                    {/* console.log("Checkbox checked change for file index", index, ":", checked);\n                    }}\n                  /> */}
-                  {/* File ikonu */}
                   <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
                     <FileIcon className="h-4 w-4 text-gray-500" />
                   </div>
-                  {/* Dosya adı ve boyut */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
                     <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
 
-                {/* 2. Sağ taraf: Remove butonu */}
                 <Button
                   variant="ghost"
                   size="sm"
