@@ -63,7 +63,7 @@ export class SourceController {
     @Query('agentId') agentId: string,
     @User() user: any,
   ) {
-    return this.sourceService.createLinkSourceByCrawling(createLinkSourceDto, agentId, user.id);
+    return this.sourceService.createLinkSource(createLinkSourceDto, agentId, user.id);
   }
 
   @Post('links/sitemap')
@@ -73,7 +73,7 @@ export class SourceController {
     @Query('agentId') agentId: string,
     @User() user: any,
   ) {
-    return this.sourceService.createLinkSourceFromSitemap(createLinkSourceDto, agentId, user.id);
+    return this.sourceService.createLinkSource(createLinkSourceDto, agentId, user.id);
   }
 
   @Post('links/individual')
@@ -83,7 +83,7 @@ export class SourceController {
     @Query('agentId') agentId: string,
     @User() user: any,
   ) {
-    return this.sourceService.createIndividualLinkSource(createLinkSourceDto, agentId, user.id);
+    return this.sourceService.createLinkSource(createLinkSourceDto, agentId, user.id);
   }
 
   @Post('qa')

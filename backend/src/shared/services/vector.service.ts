@@ -42,11 +42,14 @@ export class VectorService {
     metadata: Record<string, any> = {},
   ): Promise<string> {
     try {
+      // Convert the embedding array to the string format expected by pgvector
+      const embeddingString = `[${embedding.join(',')}]`;
+
       const result = await this.dataSource.query(
         `INSERT INTO vectors (embedding, content, metadata) 
          VALUES ($1, $2, $3) 
          RETURNING id`,
-        [embedding, content, JSON.stringify(metadata)],
+        [embeddingString, content, JSON.stringify(metadata)],
       );
       
       return result[0].id;
@@ -56,19 +59,36 @@ export class VectorService {
     }
   }
 
+  async calculateSimilarity(embedding: number[], vectorId: string): Promise<number> {
+    try {
+      const result = await this.dataSource.query(
+        `SELECT 1 - (embedding <=> $1) as similarity 
+         FROM vectors 
+         WHERE id = $2`,
+        [embedding, vectorId]
+      );
+      
+      return result[0].similarity;
+    } catch (error) {
+      console.error('Error calculating similarity:', error);
+      throw error;
+    }
+  }
+
   async findSimilarVectors(
     embedding: number[],
     limit: number = 5,
-    threshold: number = 0.7,
-  ): Promise<Array<{ id: string; content: string; similarity: number }>> {
+  ): Promise<any[]> {
     try {
+      // Convert the embedding array to the string format expected by pgvector for querying
+      const embeddingString = `[${embedding.join(',')}]`;
+
       const result = await this.dataSource.query(
-        `SELECT id, content, 1 - (embedding <=> $1) as similarity
-         FROM vectors
-         WHERE 1 - (embedding <=> $1) > $3
-         ORDER BY similarity DESC
+        `SELECT id, content, metadata, 1 - (embedding <=> $1) as similarity 
+         FROM vectors 
+         ORDER BY embedding <=> $1 
          LIMIT $2`,
-        [embedding, limit, threshold],
+        [embeddingString, limit] // Use the formatted string here
       );
       
       return result;

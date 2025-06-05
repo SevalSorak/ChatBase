@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axiosInstance from '@/lib/axios';
+import Cookies from 'js-cookie';
 
 interface User {
   id: string;
@@ -30,7 +31,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check if user is logged in on initial load
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        // const token = localStorage.getItem('accessToken');
+        const token = Cookies.get('accessToken');
         
         if (!token) {
           setLoading(false);
@@ -42,8 +44,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(response.data);
       } catch (error) {
         console.error('Authentication error:', error);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        // localStorage.removeItem('accessToken');
+        // localStorage.removeItem('refreshToken');
+
+        Cookies.remove('accessToken');
+        Cookies.remove('refreshToken');
       } finally {
         setLoading(false);
       }
@@ -60,8 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { accessToken, refreshToken, user } = response.data;
       
       // Store tokens
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      // localStorage.setItem('accessToken', accessToken);
+      // localStorage.setItem('refreshToken', refreshToken);
+
+      Cookies.set('accessToken', accessToken, { expires: 7 }); // Set access token cookie (e.g., for 7 days)
+      Cookies.set('refreshToken', refreshToken, { expires: 30 }); // Set refresh token cookie (e.g., for 30 days)
       
       setUser(user);
       router.push('/');
@@ -81,8 +89,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { accessToken, refreshToken, user } = response.data;
       
       // Store tokens
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      // localStorage.setItem('accessToken', accessToken);
+      // localStorage.setItem('refreshToken', refreshToken);
+
+      Cookies.set('accessToken', accessToken, { expires: 7 }); // Set access token cookie
+      Cookies.set('refreshToken', refreshToken, { expires: 30 }); // Set refresh token cookie
       
       setUser(user);
       router.push('/');
@@ -96,8 +107,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     // Remove tokens
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    // localStorage.removeItem('accessToken');
+    // localStorage.removeItem('refreshToken');
+
+    Cookies.remove('accessToken');
+    Cookies.remove('refreshToken');
     
     setUser(null);
     router.push('/login');

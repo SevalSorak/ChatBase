@@ -37,6 +37,7 @@ export class SourceService {
     for (const file of files) {
       try {
         const content = await this.fileProcessorService.processFile(file);
+        const { chunks, vectorIds } = await this.textProcessorService.processText(content);
         
         const source = this.sourceRepository.create({
           name: file.originalname,
@@ -51,7 +52,10 @@ export class SourceService {
             originalName: file.originalname,
             mimeType: file.mimetype,
             size: file.size,
+            chunks,
+            vectorIds,
           },
+          processed: true,
         });
 
         const savedSource = await this.sourceRepository.save(source);
@@ -68,86 +72,49 @@ export class SourceService {
   async createTextSource(createTextSourceDto: CreateTextSourceDto, agentId: string, userId: string): Promise<Source> {
     const { title, content } = createTextSourceDto;
     
-    const processedContent = await this.textProcessorService.processText(content);
+    const { chunks, vectorIds } = await this.textProcessorService.processText(content);
     
     const source = this.sourceRepository.create({
       name: title,
       type: 'text',
       agentId,
       userId,
-      content: processedContent,
+      content,
       size: Buffer.byteLength(content, 'utf8'),
       metadata: {
         title,
         charCount: content.length,
+        chunks,
+        vectorIds,
       },
+      processed: true,
     });
 
     return this.sourceRepository.save(source);
   }
 
-  async createLinkSourceByCrawling(createLinkSourceDto: CreateLinkSourceDto, agentId: string, userId: string): Promise<Source> {
+  async createLinkSource(createLinkSourceDto: CreateLinkSourceDto, agentId: string, userId: string): Promise<Source> {
     const { url, includePaths, excludePaths } = createLinkSourceDto;
     
-    const crawlResult = await this.webCrawlerService.crawlWebsite(url, includePaths, excludePaths);
+    const content = await this.webCrawlerService.fetchSinglePage(url);
+    const { chunks, vectorIds } = await this.textProcessorService.processText(content);
     
     const source = this.sourceRepository.create({
-      name: `Crawled: ${url}`,
+      name: url,
       type: 'link',
       agentId,
       userId,
-      content: crawlResult.content,
-      size: Buffer.byteLength(crawlResult.content, 'utf8'),
+      url,
+      content,
+      size: Buffer.byteLength(content, 'utf8'),
       metadata: {
         url,
-        pageCount: crawlResult.pageCount,
         includePaths,
         excludePaths,
+        chunks,
+        vectorIds,
       },
-    });
-
-    return this.sourceRepository.save(source);
-  }
-
-  async createLinkSourceFromSitemap(createLinkSourceDto: CreateLinkSourceDto, agentId: string, userId: string): Promise<Source> {
-    const { url, includePaths, excludePaths } = createLinkSourceDto;
-    
-    const sitemapResult = await this.webCrawlerService.processSitemap(url, includePaths, excludePaths);
-    
-    const source = this.sourceRepository.create({
-      name: `Sitemap: ${url}`,
-      type: 'link',
-      agentId,
-      userId,
-      content: sitemapResult.content,
-      size: Buffer.byteLength(sitemapResult.content, 'utf8'),
-      metadata: {
-        url,
-        pageCount: sitemapResult.pageCount,
-        includePaths,
-        excludePaths,
-      },
-    });
-
-    return this.sourceRepository.save(source);
-  }
-
-  async createIndividualLinkSource(createLinkSourceDto: CreateLinkSourceDto, agentId: string, userId: string): Promise<Source> {
-    const { url } = createLinkSourceDto;
-    
-    const pageContent = await this.webCrawlerService.fetchSinglePage(url);
-    
-    const source = this.sourceRepository.create({
-      name: `Page: ${url}`,
-      type: 'link',
-      agentId,
-      userId,
-      content: pageContent,
-      size: Buffer.byteLength(pageContent, 'utf8'),
-      metadata: {
-        url,
-        pageCount: 1,
-      },
+      processed: true,
     });
 
     return this.sourceRepository.save(source);
@@ -157,6 +124,7 @@ export class SourceService {
     const { title, questions } = createQaSourceDto;
     
     const processedContent = await this.qaProcessorService.processQaPairs(questions);
+    const { chunks, vectorIds } = await this.textProcessorService.processText(processedContent);
     
     const source = this.sourceRepository.create({
       name: title,
@@ -168,28 +136,35 @@ export class SourceService {
       metadata: {
         title,
         questionCount: questions.length,
+        chunks,
+        vectorIds,
       },
+      processed: true,
     });
 
     return this.sourceRepository.save(source);
   }
 
   async createNotionSource(createNotionSourceDto: any, agentId: string, userId: string): Promise<Source> {
-    const { notionPageId, accessToken } = createNotionSourceDto;
+    const { pageId, accessToken } = createNotionSourceDto;
     
-    const notionContent = await this.notionService.fetchNotionContent(notionPageId, accessToken);
+    const { title, content } = await this.notionService.fetchNotionContent(pageId, accessToken);
+    const { chunks, vectorIds } = await this.textProcessorService.processText(content);
     
     const source = this.sourceRepository.create({
-      name: `Notion: ${notionContent.title}`,
+      name: title,
       type: 'notion',
       agentId,
       userId,
-      content: notionContent.content,
-      size: Buffer.byteLength(notionContent.content, 'utf8'),
+      content,
+      size: Buffer.byteLength(content, 'utf8'),
       metadata: {
-        notionPageId,
-        title: notionContent.title,
+        pageId,
+        title,
+        chunks,
+        vectorIds,
       },
+      processed: true,
     });
 
     return this.sourceRepository.save(source);
